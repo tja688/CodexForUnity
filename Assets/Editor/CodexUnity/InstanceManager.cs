@@ -264,6 +264,34 @@ namespace CodexUnity
             return _registry.lastActiveInstanceId;
         }
 
+        /// <summary>
+        /// 重命名实例
+        /// </summary>
+        public void RenameInstance(string instanceId, string newName)
+        {
+            var info = GetInstanceInfo(instanceId);
+            if (info != null && !string.IsNullOrEmpty(newName))
+            {
+                info.name = newName;
+                UpdateInstanceInfo(info);
+                OnInstanceListChanged?.Invoke();
+                Debug.Log($"[CodexUnity] 重命名实例: {instanceId} -> {newName}");
+            }
+        }
+
+        /// <summary>
+        /// 清空实例历史
+        /// </summary>
+        public void ClearInstanceHistory(string instanceId)
+        {
+            var runner = GetRunner(instanceId);
+            if (runner != null)
+            {
+                runner.ClearHistory();
+                Debug.Log($"[CodexUnity] 清空实例历史: {instanceId}");
+            }
+        }
+
         #endregion
 
         #region Runner 管理

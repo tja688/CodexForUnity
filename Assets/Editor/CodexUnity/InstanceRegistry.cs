@@ -51,6 +51,9 @@ namespace CodexUnity
         public bool interruptedByReload;
         public long lastReloadTime;
 
+        // Phase 2: 草稿保存
+        public string draftPrompt;
+
         /// <summary>
         /// 从旧版 CodexState 迁移
         /// </summary>

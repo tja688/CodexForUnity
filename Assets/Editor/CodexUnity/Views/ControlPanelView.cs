@@ -100,6 +100,7 @@ namespace CodexUnity.Views
                 card.OnSelect += () => OnInstanceSelected?.Invoke(info.id);
                 card.OnDelete += () => DeleteInstance(info.id);
                 card.OnStop += () => StopInstance(info.id);
+                card.OnClear += () => ClearInstance(info.id);
 
                 _instanceCards[info.id] = card;
                 card.style.marginTop = _instanceListContainer.childCount > 1 ? 8 : 0;  // 模拟 gap
@@ -150,6 +151,20 @@ namespace CodexUnity.Views
             }
         }
 
+        private void ClearInstance(string instanceId)
+        {
+            var info = InstanceManager.Instance.GetInstanceInfo(instanceId);
+            var name = info?.name ?? instanceId;
+
+            if (UnityEditor.EditorUtility.DisplayDialog(
+                "清空历史",
+                $"确定要清空实例 \"{name}\" 的对话历史吗？",
+                "确定", "取消"))
+            {
+                InstanceManager.Instance.ClearInstanceHistory(instanceId);
+            }
+        }
+
         public void Cleanup()
         {
             InstanceManager.Instance.OnInstanceListChanged -= RefreshInstanceList;
@@ -170,6 +185,7 @@ namespace CodexUnity.Views
         public event Action OnSelect;
         public event Action OnDelete;
         public event Action OnStop;
+        public event Action OnClear;
 
         public InstanceCardElement(InstanceInfo info)
         {
@@ -241,8 +257,14 @@ namespace CodexUnity.Views
             var openButton = new Button(() => OnSelect?.Invoke());
             openButton.text = "打开";
             openButton.AddToClassList("primary-button");
-            openButton.style.marginRight = 6;  // 模拟 gap
+            openButton.style.marginRight = 6;
             buttonsArea.Add(openButton);
+
+            var clearButton = new Button(() => OnClear?.Invoke());
+            clearButton.text = "清空";
+            clearButton.AddToClassList("ghost-button");
+            clearButton.style.marginRight = 6;
+            buttonsArea.Add(clearButton);
 
             var deleteButton = new Button(() => OnDelete?.Invoke());
             deleteButton.text = "删除";

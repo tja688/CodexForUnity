@@ -21,16 +21,18 @@ namespace CodexUnity.Views
         private TextField _promptField;
         private TextField _modelField;
         private DropdownField _effortField;
-        private Toggle _debugToggle;
         private ScrollView _historyScroll;
         private Label _statusTextLabel;
         private Label _statusMetaLabel;
-        private VisualElement _statusBar;
+        private VisualElement _statusIndicator;
         private HelpBox _statusBox;
         private Button _sendButton;
-        private Button _newTaskButton;
         private Button _killButton;
         private Button _backButton;
+        private Label _instanceNameLabel;
+        private Label _foldoutArrow;
+        private VisualElement _promptContent;
+        private bool _isPromptExpanded = true;
 
         private VisualTreeAsset _bubbleTemplate;
 
@@ -70,193 +72,212 @@ namespace CodexUnity.Views
             var windowStyle = AssetDatabase.LoadAssetAtPath<StyleSheet>("Assets/Editor/CodexUnity/UI/CodexWindow.uss");
             _bubbleTemplate = bubbleTemplate;
 
-            if (windowStyle != null)
-            {
-                styleSheets.Add(windowStyle);
-            }
-            if (bubbleStyle != null)
-            {
-                styleSheets.Add(bubbleStyle);
-            }
+            if (windowStyle != null) styleSheets.Add(windowStyle);
+            if (bubbleStyle != null) styleSheets.Add(bubbleStyle);
 
-            // 顶部导航栏
+            // === 顶部导航栏 (包含返回、标题、状态) ===
             var navBar = new VisualElement();
             navBar.style.flexDirection = FlexDirection.Row;
             navBar.style.alignItems = Align.Center;
-            navBar.style.paddingTop = 8;
-            navBar.style.paddingBottom = 8;
-            navBar.style.paddingLeft = 12;
-            navBar.style.paddingRight = 12;
+            navBar.style.paddingTop = 6;
+            navBar.style.paddingBottom = 6;
+            navBar.style.paddingLeft = 10;
+            navBar.style.paddingRight = 10;
             navBar.style.backgroundColor = new Color(0.133f, 0.133f, 0.157f);
             navBar.style.borderBottomWidth = 1;
             navBar.style.borderBottomColor = new Color(1, 1, 1, 0.06f);
 
+            // 返回按钮
             _backButton = new Button(() => OnBackRequested?.Invoke());
-            _backButton.text = "← 返回";
+            _backButton.text = "←";
             _backButton.AddToClassList("ghost-button");
+            _backButton.style.fontSize = 14;
+            _backButton.style.paddingLeft = 6;
+            _backButton.style.paddingRight = 6;
             navBar.Add(_backButton);
 
-            var instanceName = new Label(_instanceInfo?.name ?? $"Instance {_instanceId[..8]}");
-            instanceName.style.fontSize = 14;
-            instanceName.style.unityFontStyleAndWeight = FontStyle.Bold;
-            instanceName.style.marginLeft = 12;
-            instanceName.style.color = new Color(0.91f, 0.91f, 0.93f);
-            navBar.Add(instanceName);
+            // 实例名称 (可编辑)
+            _instanceNameLabel = new Label(_instanceInfo?.name ?? $"Instance {_instanceId[..8]}");
+            _instanceNameLabel.style.fontSize = 13;
+            _instanceNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _instanceNameLabel.style.marginLeft = 8;
+            _instanceNameLabel.style.color = new Color(0.91f, 0.91f, 0.93f);
+            _instanceNameLabel.style.flexGrow = 1;
+            navBar.Add(_instanceNameLabel);
+
+            // 重命名按钮
+            var renameButton = new Button(ShowRenameDialog);
+            renameButton.text = "✎";
+            renameButton.AddToClassList("ghost-button");
+            renameButton.style.fontSize = 12;
+            renameButton.style.marginLeft = 4;
+            renameButton.style.paddingLeft = 4;
+            renameButton.style.paddingRight = 4;
+            navBar.Add(renameButton);
+
+            // 状态指示器
+            _statusIndicator = new VisualElement();
+            _statusIndicator.style.width = 8;
+            _statusIndicator.style.height = 8;
+            _statusIndicator.style.borderTopLeftRadius = 4;
+            _statusIndicator.style.borderTopRightRadius = 4;
+            _statusIndicator.style.borderBottomLeftRadius = 4;
+            _statusIndicator.style.borderBottomRightRadius = 4;
+            _statusIndicator.style.marginLeft = 10;
+            _statusIndicator.style.backgroundColor = new Color(0.42f, 0.42f, 0.47f);
+            navBar.Add(_statusIndicator);
+
+            // 状态文本
+            _statusTextLabel = new Label("Idle");
+            _statusTextLabel.style.fontSize = 11;
+            _statusTextLabel.style.marginLeft = 6;
+            _statusTextLabel.style.color = new Color(0.66f, 0.66f, 0.69f);
+            navBar.Add(_statusTextLabel);
+
+            // 状态详情
+            _statusMetaLabel = new Label("");
+            _statusMetaLabel.style.fontSize = 9;
+            _statusMetaLabel.style.marginLeft = 8;
+            _statusMetaLabel.style.color = new Color(0.42f, 0.42f, 0.47f);
+            navBar.Add(_statusMetaLabel);
 
             Add(navBar);
 
-            // 主内容区域
+            // === 主内容区域 ===
             var mainContent = new VisualElement();
             mainContent.style.flexGrow = 1;
             mainContent.style.flexDirection = FlexDirection.Column;
-            mainContent.style.paddingTop = 12;
-            mainContent.style.paddingBottom = 12;
-            mainContent.style.paddingLeft = 12;
-            mainContent.style.paddingRight = 12;
+            mainContent.style.paddingTop = 8;
+            mainContent.style.paddingBottom = 8;
+            mainContent.style.paddingLeft = 10;
+            mainContent.style.paddingRight = 10;
             mainContent.style.backgroundColor = new Color(0.102f, 0.102f, 0.122f);
 
-            // 状态栏
-            _statusBar = new VisualElement();
-            _statusBar.AddToClassList("status-bar");
-            _statusBar.AddToClassList("status-idle");
-            _statusBar.style.flexDirection = FlexDirection.Row;
-            _statusBar.style.justifyContent = Justify.SpaceBetween;
-            _statusBar.style.alignItems = Align.Center;
-            _statusBar.style.paddingTop = 8;
-            _statusBar.style.paddingBottom = 8;
-            _statusBar.style.paddingLeft = 12;
-            _statusBar.style.paddingRight = 12;
-            _statusBar.style.borderTopLeftRadius = 6;
-            _statusBar.style.borderTopRightRadius = 6;
-            _statusBar.style.borderBottomLeftRadius = 6;
-            _statusBar.style.borderBottomRightRadius = 6;
-            _statusBar.style.marginBottom = 8;
-            _statusBar.style.backgroundColor = new Color(0.31f, 0.80f, 0.77f, 0.15f);
-
-            _statusTextLabel = new Label("Idle");
-            _statusTextLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            _statusTextLabel.style.fontSize = 13;
-            _statusTextLabel.style.color = new Color(0.31f, 0.80f, 0.77f);
-            _statusBar.Add(_statusTextLabel);
-
-            _statusMetaLabel = new Label("No active run");
-            _statusMetaLabel.style.fontSize = 10;
-            _statusMetaLabel.style.color = new Color(0.42f, 0.42f, 0.47f);
-            _statusBar.Add(_statusMetaLabel);
-
-            mainContent.Add(_statusBar);
-
-            // 历史记录区域
+            // === 对话区域 (更大空间) ===
             var historyCard = new VisualElement();
             historyCard.AddToClassList("card");
-            historyCard.AddToClassList("history-card");
             historyCard.style.flexGrow = 1;
             historyCard.style.backgroundColor = new Color(0.165f, 0.165f, 0.196f);
-            historyCard.style.borderTopLeftRadius = 10;
-            historyCard.style.borderTopRightRadius = 10;
-            historyCard.style.borderBottomLeftRadius = 10;
-            historyCard.style.borderBottomRightRadius = 10;
-            historyCard.style.paddingTop = 10;
-            historyCard.style.paddingBottom = 10;
-            historyCard.style.paddingLeft = 10;
-            historyCard.style.paddingRight = 10;
-            historyCard.style.marginBottom = 8;
-
-            var historyTitle = new Label("Conversation");
-            historyTitle.style.fontSize = 12;
-            historyTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
-            historyTitle.style.marginBottom = 6;
-            historyTitle.style.color = new Color(0.91f, 0.91f, 0.93f);
-            historyCard.Add(historyTitle);
+            historyCard.style.borderTopLeftRadius = 8;
+            historyCard.style.borderTopRightRadius = 8;
+            historyCard.style.borderBottomLeftRadius = 8;
+            historyCard.style.borderBottomRightRadius = 8;
+            historyCard.style.paddingTop = 8;
+            historyCard.style.paddingBottom = 8;
+            historyCard.style.paddingLeft = 8;
+            historyCard.style.paddingRight = 8;
+            historyCard.style.marginBottom = 6;
 
             _historyScroll = new ScrollView(ScrollViewMode.Vertical);
             _historyScroll.style.flexGrow = 1;
             _historyScroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             historyCard.Add(_historyScroll);
-
             mainContent.Add(historyCard);
 
-            // 输入区域
-            var inputCard = new VisualElement();
-            inputCard.AddToClassList("card");
-            inputCard.AddToClassList("input-card");
-            inputCard.style.backgroundColor = new Color(0.165f, 0.165f, 0.196f);
-            inputCard.style.borderTopLeftRadius = 10;
-            inputCard.style.borderTopRightRadius = 10;
-            inputCard.style.borderBottomLeftRadius = 10;
-            inputCard.style.borderBottomRightRadius = 10;
-            inputCard.style.paddingTop = 10;
-            inputCard.style.paddingBottom = 10;
-            inputCard.style.paddingLeft = 10;
-            inputCard.style.paddingRight = 10;
+            // === 可折叠 Prompt 区域 ===
+            var promptCard = new VisualElement();
+            promptCard.AddToClassList("card");
+            promptCard.style.backgroundColor = new Color(0.165f, 0.165f, 0.196f);
+            promptCard.style.borderTopLeftRadius = 8;
+            promptCard.style.borderTopRightRadius = 8;
+            promptCard.style.borderBottomLeftRadius = 8;
+            promptCard.style.borderBottomRightRadius = 8;
+            promptCard.style.paddingTop = 6;
+            promptCard.style.paddingBottom = 6;
+            promptCard.style.paddingLeft = 8;
+            promptCard.style.paddingRight = 8;
 
-            var inputTitle = new Label("Prompt");
-            inputTitle.style.fontSize = 12;
-            inputTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
-            inputTitle.style.marginBottom = 6;
-            inputTitle.style.color = new Color(0.91f, 0.91f, 0.93f);
-            inputCard.Add(inputTitle);
+            // Prompt 标题栏 (可折叠 + 按钮)
+            var promptHeader = new VisualElement();
+            promptHeader.style.flexDirection = FlexDirection.Row;
+            promptHeader.style.alignItems = Align.Center;
+            promptHeader.style.justifyContent = Justify.SpaceBetween;
 
-            // 输入行
-            var inputRow = new VisualElement();
-            inputRow.style.flexDirection = FlexDirection.Row;
-            inputRow.style.flexWrap = Wrap.Wrap;
-            inputRow.style.marginBottom = 8;
+            // 左侧: 折叠箭头 + 标题
+            var headerLeft = new VisualElement();
+            headerLeft.style.flexDirection = FlexDirection.Row;
+            headerLeft.style.alignItems = Align.Center;
 
-            _modelField = new TextField("Model");
-            _modelField.value = _runner.State.model ?? "gpt-5.1-codex-mini";
-            _modelField.style.flexGrow = 1;
-            _modelField.style.minWidth = 80;
-            _modelField.style.marginRight = 8;  // 模拟 gap
-            inputRow.Add(_modelField);
+            _foldoutArrow = new Label("▼");
+            _foldoutArrow.style.fontSize = 10;
+            _foldoutArrow.style.marginRight = 6;
+            _foldoutArrow.style.color = new Color(0.66f, 0.66f, 0.69f);
+            headerLeft.Add(_foldoutArrow);
 
-            _effortField = new DropdownField("Effort", new List<string> { "minimal", "low", "medium", "high", "xhigh" }, 2);
-            _effortField.value = _runner.State.effort ?? "medium";
-            _effortField.style.flexGrow = 1;
-            _effortField.style.minWidth = 80;
-            _effortField.style.marginRight = 8;  // 模拟 gap
-            inputRow.Add(_effortField);
+            var promptTitle = new Label("Prompt");
+            promptTitle.style.fontSize = 12;
+            promptTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            promptTitle.style.color = new Color(0.91f, 0.91f, 0.93f);
+            headerLeft.Add(promptTitle);
 
-            _debugToggle = new Toggle("Debug");
-            _debugToggle.value = _runner.State.debug;
-            _debugToggle.style.minWidth = 60;
-            inputRow.Add(_debugToggle);
+            // 点击标题折叠
+            headerLeft.RegisterCallback<ClickEvent>(_ => TogglePromptFoldout());
+            headerLeft.style.cursor = new Cursor(); // 表示可点击
 
-            inputCard.Add(inputRow);
+            promptHeader.Add(headerLeft);
 
-            // Prompt 输入框
-            _promptField = new TextField("Message");
-            _promptField.multiline = true;
-            _promptField.style.minHeight = 80;
-            _promptField.style.maxHeight = 160;
-            _promptField.RegisterValueChangedCallback(_ => UpdateSendState());
-            inputCard.Add(_promptField);
-
-            // 按钮行
-            var buttonRow = new VisualElement();
-            buttonRow.style.flexDirection = FlexDirection.Row;
-            buttonRow.style.flexWrap = Wrap.Wrap;
-            buttonRow.style.marginTop = 8;
+            // 右侧: 按钮
+            var headerButtons = new VisualElement();
+            headerButtons.style.flexDirection = FlexDirection.Row;
 
             _sendButton = new Button(Send);
             _sendButton.text = "Send";
             _sendButton.AddToClassList("primary-button");
-            _sendButton.style.marginRight = 6;  // 模拟 gap
-            buttonRow.Add(_sendButton);
-
-            _newTaskButton = new Button(NewTask);
-            _newTaskButton.text = "New Task";
-            _newTaskButton.AddToClassList("ghost-button");
-            _newTaskButton.style.marginRight = 6;  // 模拟 gap
-            buttonRow.Add(_newTaskButton);
+            _sendButton.style.marginRight = 4;
+            _sendButton.style.paddingTop = 4;
+            _sendButton.style.paddingBottom = 4;
+            headerButtons.Add(_sendButton);
 
             _killButton = new Button(KillRun);
             _killButton.text = "Kill";
             _killButton.AddToClassList("danger-button");
-            buttonRow.Add(_killButton);
+            _killButton.style.paddingTop = 4;
+            _killButton.style.paddingBottom = 4;
+            headerButtons.Add(_killButton);
 
-            inputCard.Add(buttonRow);
-            mainContent.Add(inputCard);
+            promptHeader.Add(headerButtons);
+            promptCard.Add(promptHeader);
+
+            // Prompt 内容区域 (可折叠)
+            _promptContent = new VisualElement();
+            _promptContent.style.marginTop = 6;
+
+            // 选项行
+            var optionsRow = new VisualElement();
+            optionsRow.style.flexDirection = FlexDirection.Row;
+            optionsRow.style.marginBottom = 6;
+
+            _modelField = new TextField("Model");
+            _modelField.value = _runner.State.model ?? "gpt-5.1-codex-mini";
+            _modelField.style.flexGrow = 1;
+            _modelField.style.marginRight = 6;
+            optionsRow.Add(_modelField);
+
+            _effortField = new DropdownField("Effort", new List<string> { "minimal", "low", "medium", "high", "xhigh" }, 2);
+            _effortField.value = _runner.State.effort ?? "medium";
+            _effortField.style.flexGrow = 1;
+            optionsRow.Add(_effortField);
+
+            _promptContent.Add(optionsRow);
+
+            // Prompt 输入框
+            _promptField = new TextField();
+            _promptField.multiline = true;
+            _promptField.style.minHeight = 60;
+            _promptField.style.maxHeight = 120;
+            // 恢复草稿
+            _promptField.value = _runner.State.draftPrompt ?? "";
+            // 实时保存草稿
+            _promptField.RegisterValueChangedCallback(evt =>
+            {
+                _runner.State.draftPrompt = evt.newValue;
+                _runner.SaveState();
+                UpdateSendState();
+            });
+            _promptContent.Add(_promptField);
+
+            promptCard.Add(_promptContent);
+            mainContent.Add(promptCard);
 
             // 状态消息框
             _statusBox = new HelpBox();
@@ -265,6 +286,25 @@ namespace CodexUnity.Views
             mainContent.Add(_statusBox);
 
             Add(mainContent);
+        }
+
+        private void TogglePromptFoldout()
+        {
+            _isPromptExpanded = !_isPromptExpanded;
+            _promptContent.style.display = _isPromptExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+            _foldoutArrow.text = _isPromptExpanded ? "▼" : "▶";
+        }
+
+        private void ShowRenameDialog()
+        {
+            var currentName = _instanceInfo?.name ?? "";
+            var newName = EditorInputDialog.Show("重命名实例", "输入新名称:", currentName);
+            if (!string.IsNullOrEmpty(newName) && newName != currentName)
+            {
+                InstanceManager.Instance.RenameInstance(_instanceId, newName);
+                _instanceInfo = InstanceManager.Instance.GetInstanceInfo(_instanceId);
+                _instanceNameLabel.text = newName;
+            }
         }
 
         private void BindEvents()
@@ -476,47 +516,44 @@ namespace CodexUnity.Views
             var pid = state.activePid;
             var status = state.status;
 
-            string statusClass = "status-idle";
             string headline = "Idle";
-            Color statusColor = new Color(0.31f, 0.80f, 0.77f);
+            Color statusColor = new Color(0.42f, 0.42f, 0.47f); // 灰色
 
             switch (status)
             {
                 case InstanceStatus.Running:
                     if (pid > 0 && CodexRunnerInstance.IsProcessAlive(pid))
                     {
-                        statusClass = "status-running";
                         headline = "Running";
-                        statusColor = new Color(0.15f, 0.87f, 0.51f);
+                        statusColor = new Color(0.15f, 0.87f, 0.51f); // 绿色
                     }
                     else
                     {
-                        statusClass = "status-warning";
                         headline = "Warning";
-                        statusColor = new Color(0.99f, 0.79f, 0.34f);
+                        statusColor = new Color(0.99f, 0.79f, 0.34f); // 黄色
                     }
                     break;
                 case InstanceStatus.Completed:
-                    statusClass = "status-completed";
                     headline = "Completed";
-                    statusColor = new Color(0.15f, 0.87f, 0.51f);
+                    statusColor = new Color(0.15f, 0.87f, 0.51f); // 绿色
                     break;
                 case InstanceStatus.Error:
-                    statusClass = "status-error";
                     headline = "Error";
-                    statusColor = new Color(1f, 0.42f, 0.42f);
+                    statusColor = new Color(1f, 0.42f, 0.42f); // 红色
                     break;
             }
 
-            _statusBar.style.backgroundColor = new Color(statusColor.r, statusColor.g, statusColor.b, 0.15f);
+            // 更新状态指示器颜色
+            _statusIndicator.style.backgroundColor = statusColor;
             _statusTextLabel.text = headline;
             _statusTextLabel.style.color = statusColor;
 
+            // 更新状态详情
             var outputTime = _runner.LastOutputTime;
             var outputText = outputTime.HasValue ? outputTime.Value.ToString("HH:mm:ss", CultureInfo.InvariantCulture) : "--";
             _statusMetaLabel.text = string.IsNullOrEmpty(runId)
-                ? "No active run"
-                : $"runId {runId[..Math.Min(12, runId.Length)]}  pid {pid}  last output {outputText}";
+                ? ""
+                : $"run:{runId[..Math.Min(8, runId.Length)]} pid:{pid} @{outputText}";
 
             _killButton?.SetEnabled(status == InstanceStatus.Running);
             UpdateSendState();
@@ -604,7 +641,7 @@ namespace CodexUnity.Views
             // 保存设置
             _runner.State.model = model;
             _runner.State.effort = effort;
-            _runner.State.debug = _debugToggle.value;
+            _runner.State.draftPrompt = "";  // 清空草稿
             _runner.SaveState();
 
             _runner.Execute(prompt, model, effort, resume,
@@ -626,25 +663,7 @@ namespace CodexUnity.Views
             UpdateSendState();
         }
 
-        private void NewTask()
-        {
-            if (!EditorUtility.DisplayDialog("新建任务",
-                "确定要清空当前对话历史并开始新任务吗？",
-                "确定", "取消"))
-            {
-                return;
-            }
 
-            _runner.ClearHistory();
-
-            _currentAssistantBubble = null;
-            _streamBuffer.Clear();
-            _streamLineCount = 0;
-
-            LoadConversation();
-            RefreshRunStatus();
-            SetStatusMessage("已开始新任务", HelpBoxMessageType.Info);
-        }
 
         private void KillRun()
         {

@@ -19,6 +19,10 @@ namespace CodexUnity
             InstanceDetail
         }
 
+        // EditorPrefs keys for Domain Reload persistence
+        private const string PrefKeyCurrentView = "CodexUnity_CurrentView";
+        private const string PrefKeyCurrentInstanceId = "CodexUnity_CurrentInstanceId";
+
         private ViewState _currentView = ViewState.ControlPanel;
         private string _currentInstanceId;
 
@@ -44,6 +48,10 @@ namespace CodexUnity
 
         private void OnDisable()
         {
+            // 保存视图状态
+            EditorPrefs.SetInt(PrefKeyCurrentView, (int)_currentView);
+            EditorPrefs.SetString(PrefKeyCurrentInstanceId, _currentInstanceId ?? "");
+
             EditorApplication.update -= OnEditorUpdate;
             Cleanup();
         }
@@ -58,6 +66,7 @@ namespace CodexUnity
             }
             _wasCompiling = isCompiling;
         }
+
 
         public void CreateGUI()
         {
@@ -93,15 +102,23 @@ namespace CodexUnity
             _notificationOverlay = new NotificationOverlay();
             rootVisualElement.Add(_notificationOverlay);
 
-            // 检查是否有最后活跃的实例需要恢复
-            var lastActiveId = InstanceManager.Instance.GetLastActiveInstanceId();
-            if (!string.IsNullOrEmpty(lastActiveId) && InstanceManager.Instance.GetInstanceInfo(lastActiveId) != null)
-            {
-                // 如果用户上次在某个实例中，可以选择自动恢复
-                // 但为了简单起见，默认显示控制面板
-            }
+            // 恢复视图状态 (Domain Reload 后)
+            var savedView = (ViewState)EditorPrefs.GetInt(PrefKeyCurrentView, 0);
+            var savedInstanceId = EditorPrefs.GetString(PrefKeyCurrentInstanceId, "");
 
-            _currentView = ViewState.ControlPanel;
+            if (savedView == ViewState.InstanceDetail
+
+                && !string.IsNullOrEmpty(savedInstanceId)
+
+                && InstanceManager.Instance.GetInstanceInfo(savedInstanceId) != null)
+            {
+                // 恢复到之前的实例详情视图
+                NavigateToInstance(savedInstanceId);
+            }
+            else
+            {
+                _currentView = ViewState.ControlPanel;
+            }
         }
 
         private void Cleanup()
