@@ -20,6 +20,7 @@ namespace CodexUnity
         public string lastRunOutPath;
         public string model;
         public string effort;
+        public bool interruptedByReload;  // 被 Domain Reload 中断的标志（文件系统备份）
     }
 
     /// <summary>

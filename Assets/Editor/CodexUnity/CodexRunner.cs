@@ -138,6 +138,39 @@ namespace CodexUnity
             }
         }
 
+        public static void BindAssemblyReloadEvents()
+        {
+            AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
+            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
+            Debug.Log("[CodexUnity] Assembly Reload 事件已绑定");
+        }
+
+        private static void OnBeforeAssemblyReload()
+        {
+            // 关键修复：不要依赖 _isRunning 静态变量，因为后台线程可能已经更新了它
+            // 直接从持久化状态文件读取，这是最可靠的判断方式
+            var state = CodexStore.LoadState();
+            var wasRunning = _isRunning || state.activeStatus == "running";
+
+
+            Debug.Log($"[CodexUnity] OnBeforeAssemblyReload: _isRunning={_isRunning}, state.activeStatus={state.activeStatus}, wasRunning={wasRunning}");
+
+
+            if (wasRunning)
+            {
+                // 设置中断标志
+                SessionState.SetBool("Codex_WasInterruptedByReload", true);
+
+                // 同时保存到文件，作为备份（SessionState 可能不可靠）
+
+                state.interruptedByReload = true;
+                CodexStore.SaveState(state);
+
+
+                Debug.Log("[CodexUnity] 检测到运行中任务，已设置中断标志");
+            }
+        }
+
         public static string GetRunDir(string runId)
         {
             return CodexStore.GetRunDir(runId);
@@ -529,6 +562,33 @@ namespace CodexUnity
             {
                 if (state.activeStatus == "running")
                 {
+                    // 关键修复：不要在这里直接改成 "unknown"
+                    // 因为如果是 Domain Reload 导致的进程丢失，我们需要保持 "running" 状态
+                    // 这样 CheckAndRecoverPendingRun 才能正确触发恢复
+
+                    // 检查是否是 reload 中断
+
+                    if (state.interruptedByReload || SessionState.GetBool("Codex_WasInterruptedByReload", false))
+                    {
+                        // 保持 running 状态，让恢复机制处理
+                        Debug.Log("[CodexUnity] TailActiveRunFiles: 进程丢失，但检测到 reload 中断标志，保持 running 状态");
+                        return;
+                    }
+
+                    // 给一个短延迟，因为 OnBeforeAssemblyReload 可能还没来得及设置标志
+                    // 通过检查 Unity 是否正在编译来判断
+
+                    if (EditorApplication.isCompiling)
+                    {
+                        Debug.Log("[CodexUnity] TailActiveRunFiles: 进程丢失，但 Unity 正在编译中，保持 running 状态");
+                        // 提前设置中断标志，因为我们知道马上要 reload 了
+                        state.interruptedByReload = true;
+                        CodexStore.SaveState(state);
+                        return;
+                    }
+
+                    // 确实是非预期的进程丢失
+
                     state.activeStatus = "unknown";
                     CodexStore.SaveState(state);
                     AppendSystemMessage(state.activeRunId, "warn", "进程已结束或丢失，日志已恢复到最新");
@@ -1009,8 +1069,14 @@ namespace CodexUnity
 
             var state = CodexStore.LoadState();
             var runId = !string.IsNullOrEmpty(state.activeRunId) ? state.activeRunId : state.lastRunId;
+
+
+            Debug.Log($"[CodexUnity] CheckAndRecoverPendingRun: runId={runId}, status={state.activeStatus}, pid={state.activePid}, interruptedByReload={state.interruptedByReload}");
+
+
             if (string.IsNullOrEmpty(runId))
             {
+                Debug.Log("[CodexUnity] 没有找到需要恢复的运行");
                 return;
             }
 
@@ -1018,7 +1084,6 @@ namespace CodexUnity
             _tailStderrPartial = string.Empty;
             _tailEventsPartial = string.Empty;
 
-            DebugLog($"[CodexUnity] 恢复运行 runId={runId}, status={state.activeStatus}, pid={state.activePid}");
             var stdoutPath = CodexStore.GetStdoutPath(runId);
             var stderrPath = CodexStore.GetStderrPath(runId);
             var eventsPath = CodexStore.GetEventsPath(runId);
@@ -1055,14 +1120,66 @@ namespace CodexUnity
                 CodexStore.SaveState(state);
             }
 
-            if (state.activeStatus == "running" && state.activePid > 0 && !IsProcessAlive(state.activePid))
+            // 检查是否需要恢复
+            // 使用两个来源判断：SessionState（内存）和 state.interruptedByReload（文件）
+            var wasInterruptedBySession = SessionState.GetBool("Codex_WasInterruptedByReload", false);
+            var wasInterruptedByFile = state.interruptedByReload;
+            var wasInterrupted = wasInterruptedBySession || wasInterruptedByFile;
+
+
+            Debug.Log($"[CodexUnity] 中断检查: SessionState={wasInterruptedBySession}, FileState={wasInterruptedByFile}, Combined={wasInterrupted}");
+
+            // 进程已死但之前是运行状态
+
+            var processLost = state.activeStatus == "running" && state.activePid > 0 && !IsProcessAlive(state.activePid);
+            Debug.Log($"[CodexUnity] 进程状态: processLost={processLost}, IsProcessAlive={state.activePid > 0 && IsProcessAlive(state.activePid)}");
+
+
+            if (processLost)
             {
+                if (wasInterrupted)
+                {
+                    // 清除中断标志
+                    SessionState.EraseBool("Codex_WasInterruptedByReload");
+                    state.interruptedByReload = false;
+                    CodexStore.SaveState(state);
+
+
+                    Debug.Log("[CodexUnity] 检测到被 Domain Reload 中断，准备自动恢复...");
+                    ResumeActiveRun(state);
+                    return;
+                }
+
+                // 不是因为 reload 导致的，标记为 unknown
                 state.activeStatus = "unknown";
                 CodexStore.SaveState(state);
                 AppendSystemMessage(runId, "warn", "进程已结束或丢失，日志已恢复到最新");
             }
 
             AppendFinalSummaryIfNeeded(runId);
+        }
+
+        private static void ResumeActiveRun(CodexState state)
+        {
+            // 更详细的恢复提示
+            var prompt = "Unity Editor performed a domain reload (script recompilation). " +
+                         "The previous session was interrupted. Please check if the previous operation succeeded " +
+                         "(e.g., if a script was created, verify it exists and compiled without errors). " +
+                         "Then continue with the original task.";
+
+            Debug.Log("[CodexUnity] ResumeActiveRun: 正在自动恢复任务...");
+            AppendSystemMessage(state.activeRunId, "info", "检测到 Domain Reload，正在自动恢复任务...");
+
+            // 重置状态以便启动新进程
+            state.activeStatus = "resuming";
+            state.activePid = 0;
+            CodexStore.SaveState(state);
+
+            // Resume execution
+            Execute(prompt, state.model, state.effort, true,
+
+                result => Debug.Log("[CodexUnity] 恢复执行完成: " + result),
+                error => Debug.LogWarning("[CodexUnity] 恢复执行失败: " + error));
         }
 
         private static void RefreshDebugFlag()

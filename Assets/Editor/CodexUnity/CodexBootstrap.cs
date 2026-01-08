@@ -22,6 +22,9 @@ namespace CodexUnity
             // 确保目录存在
             CodexStore.EnsureDirectoriesExist();
 
+            // 绑定 Assembly Reload 事件
+            CodexRunner.BindAssemblyReloadEvents();
+
             // 检查并恢复未完成的运行
             CodexRunner.CheckAndRecoverPendingRun();
 
