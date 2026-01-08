@@ -550,7 +550,9 @@ namespace CodexUnity
 
             var state = CodexStore.LoadState();
             state.activePid = 0;
-            state.activeStatus = exitInfo.killed ? "killed" : (exitInfo.exitCode == 0 ? "completed" : "error");
+            // 退出码 0 或 -1（Domain Reload 后有有效输出）都视为成功
+            var isSuccess = exitInfo.exitCode == 0 || (exitInfo.exitCode == -1 && HasValidOutputContent(exitInfo.runId));
+            state.activeStatus = exitInfo.killed ? "killed" : (isSuccess ? "completed" : "error");
             CodexStore.SaveState(state);
 
             // 最后一次读取所有剩余输出
@@ -560,7 +562,7 @@ namespace CodexUnity
             AppendFinalSummaryIfNeeded(exitInfo.runId);
             RunStatusChanged?.Invoke();
 
-            if (exitInfo.exitCode == 0 && !exitInfo.killed)
+            if (isSuccess && !exitInfo.killed)
             {
                 _onComplete?.Invoke("completed");
             }
@@ -598,11 +600,14 @@ namespace CodexUnity
                 Debug.Log($"[CodexUnity] 检测到进程 {state.activePid} 已退出（可能在 Domain Reload 期间）");
 
                 // 进程已死，完成最后的清理
+                // 由于无法获取真实退出码，通过检查输出文件判断是否成功
+                var isSuccess = HasValidOutputContent(state.activeRunId);
+
 
                 var exitInfo = new ExitInfo
                 {
                     runId = state.activeRunId,
-                    exitCode = -1, // 未知退出码
+                    exitCode = isSuccess ? 0 : -1, // 有有效输出则视为成功
                     killed = false
                 };
                 _pendingExit = exitInfo;
@@ -754,6 +759,58 @@ namespace CodexUnity
             {
                 return 0;
             }
+        }
+
+        /// <summary>
+        /// 检查指定 runId 是否有有效的输出内容（out.txt 或 stdout.txt）
+        /// 用于判断 Domain Reload 后进程是否成功完成
+        /// </summary>
+        private static bool HasValidOutputContent(string runId)
+        {
+            if (string.IsNullOrEmpty(runId))
+            {
+                return false;
+            }
+
+            // 首先检查 out.txt（最终输出文件）
+            var outPath = CodexStore.GetOutPath(runId);
+            if (File.Exists(outPath))
+            {
+                try
+                {
+                    var content = File.ReadAllText(outPath, Encoding.UTF8);
+                    if (!string.IsNullOrWhiteSpace(content))
+                    {
+                        DebugLog($"[CodexUnity] 发现有效输出内容 (out.txt): {content.Length} 字符");
+                        return true;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ignore read errors
+                }
+            }
+
+            // 其次检查 stdout.txt 是否有内容
+            var stdoutPath = CodexStore.GetStdoutPath(runId);
+            if (File.Exists(stdoutPath))
+            {
+                try
+                {
+                    var info = new FileInfo(stdoutPath);
+                    if (info.Length > 50) // 至少有一些有意义的输出
+                    {
+                        DebugLog($"[CodexUnity] 发现有效输出内容 (stdout.txt): {info.Length} 字节");
+                        return true;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ignore
+                }
+            }
+
+            return false;
         }
 
         private static void AppendFinalSummaryIfNeeded(string runId)
