@@ -1,21 +1,15 @@
 using UnityEngine;
 
-/// <summary>
-/// Tracks how many times the space bar is pressed while this object is active.
-/// </summary>
 public class SpacePressCounter : MonoBehaviour
 {
     [SerializeField]
-    private int pressCount;
+    private int count;
 
     private void Update()
     {
-        if (!Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            return;
+            count++;
         }
-
-        pressCount++;
-        Debug.Log($"Space pressed {pressCount} time(s)");
     }
 }
