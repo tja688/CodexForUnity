@@ -44,10 +44,10 @@ namespace CodexUnity.Views
         // 模型和档位选项
         private static readonly List<string> AllModels = new()
         {
-            "GPT-5.2-Codex",
-            "GPT-5.1-Codex-Max",
-            "GPT-5.2",
-            "GPT-5.1-Codex-Mini"
+            "gpt-5.2-codex",
+            "gpt-5.1-codex-max",
+            "gpt-5.2",
+            "gpt-5.1-codex-mini"
         };
 
         private static readonly List<string> FullEffortOptions = new() { "low", "medium", "high", "max" };
