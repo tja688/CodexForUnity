@@ -113,7 +113,7 @@ namespace CodexUnity
             {
                 instanceId = instanceId,
                 status = InstanceStatus.Idle,
-                model = "gpt-5.1-codex-mini",
+                model = "GPT-5.2-Codex",
                 effort = "medium",
                 activeStatus = "idle",
                 debug = false
@@ -126,7 +126,7 @@ namespace CodexUnity
         public void ApplyDefaults()
         {
             if (string.IsNullOrEmpty(model))
-                model = "gpt-5.1-codex-mini";
+                model = "GPT-5.2-Codex";
             if (string.IsNullOrEmpty(effort))
                 effort = "medium";
             if (string.IsNullOrEmpty(activeStatus))

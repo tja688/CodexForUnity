@@ -598,6 +598,83 @@ namespace CodexUnity
 
         #endregion
 
+        #region 常用语管理
+
+        /// <summary>
+        /// 常用语数据
+        /// </summary>
+        [Serializable]
+        public class PhrasesData
+        {
+            public string[] phrases = Array.Empty<string>();
+        }
+
+        private static string PhrasesFilePath => Path.Combine(CodexUnityDir, "phrases.json");
+
+        /// <summary>
+        /// 加载常用语列表
+        /// </summary>
+        public static List<string> LoadPhrases()
+        {
+            EnsureDirectoriesExist();
+
+            if (!File.Exists(PhrasesFilePath))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var json = File.ReadAllText(PhrasesFilePath, Encoding.UTF8);
+                var data = JsonUtility.FromJson<PhrasesData>(json);
+                return data?.phrases != null ? new List<string>(data.phrases) : new List<string>();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[CodexUnity] 读取 phrases.json 失败: {e.Message}");
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// 保存常用语列表
+        /// </summary>
+        public static void SavePhrases(List<string> phrases)
+        {
+            EnsureDirectoriesExist();
+            var data = new PhrasesData { phrases = phrases?.ToArray() ?? Array.Empty<string>() };
+            var json = JsonUtility.ToJson(data, true);
+            File.WriteAllText(PhrasesFilePath, json, Encoding.UTF8);
+        }
+
+        /// <summary>
+        /// 添加常用语
+        /// </summary>
+        public static void AddPhrase(string phrase)
+        {
+            if (string.IsNullOrWhiteSpace(phrase)) return;
+            var phrases = LoadPhrases();
+            if (!phrases.Contains(phrase))
+            {
+                phrases.Add(phrase);
+                SavePhrases(phrases);
+            }
+        }
+
+        /// <summary>
+        /// 删除常用语
+        /// </summary>
+        public static void RemovePhrase(string phrase)
+        {
+            var phrases = LoadPhrases();
+            if (phrases.Remove(phrase))
+            {
+                SavePhrases(phrases);
+            }
+        }
+
+        #endregion
+
         #region 数据迁移
 
         /// <summary>
@@ -695,7 +772,7 @@ namespace CodexUnity
             return new CodexState
             {
                 hasActiveThread = false,
-                model = "gpt-5.1-codex-mini",
+                model = "GPT-5.2-Codex",
                 effort = "medium",
                 activeStatus = "idle",
                 debug = false
@@ -711,7 +788,7 @@ namespace CodexUnity
 
             if (string.IsNullOrEmpty(state.model))
             {
-                state.model = "gpt-5.1-codex-mini";
+                state.model = "GPT-5.2-Codex";
             }
 
             if (string.IsNullOrEmpty(state.effort))

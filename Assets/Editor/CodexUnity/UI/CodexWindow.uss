@@ -279,6 +279,8 @@
   border-radius: var(--radius-sm);
   color: var(--ink);
   padding: 8px;
+  white-space: normal;
+  -unity-text-wrap-mode: wrap;
 }
 
 /* ===== Button Row ===== */

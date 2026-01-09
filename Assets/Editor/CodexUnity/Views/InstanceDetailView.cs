@@ -19,7 +19,7 @@ namespace CodexUnity.Views
 
         // UI 元素
         private TextField _promptField;
-        private TextField _modelField;
+        private DropdownField _modelField;
         private DropdownField _effortField;
         private ScrollView _historyScroll;
         private Label _statusTextLabel;
@@ -35,6 +35,26 @@ namespace CodexUnity.Views
         private bool _isPromptExpanded = true;
 
         private VisualTreeAsset _bubbleTemplate;
+
+        // 常用语
+        private DropdownField _phrasesDropdown;
+        private List<string> _phrases;
+        private const string AddNewPhraseOption = "+ 新增常用语...";
+
+        // 模型和档位选项
+        private static readonly List<string> AllModels = new()
+        {
+            "GPT-5.2-Codex",
+            "GPT-5.1-Codex-Max",
+            "GPT-5.2",
+            "GPT-5.1-Codex-Mini"
+        };
+
+        private static readonly List<string> FullEffortOptions = new() { "low", "medium", "high", "max" };
+        private static readonly List<string> MiniEffortOptions = new() { "medium", "high" };
+        private const string DefaultModel = "GPT-5.2-Codex";
+        private const string DefaultEffort = "medium";
+        private const string MiniModel = "GPT-5.1-Codex-Mini";
 
         // 消息归并状态
         private ChatBubbleElement _currentAssistantBubble;
@@ -249,24 +269,60 @@ namespace CodexUnity.Views
             optionsRow.style.flexDirection = FlexDirection.Row;
             optionsRow.style.marginBottom = 6;
 
-            _modelField = new TextField("Model");
-            _modelField.value = _runner.State.model ?? "gpt-5.1-codex-mini";
+            var currentModel = _runner.State.model;
+            if (string.IsNullOrEmpty(currentModel) || !AllModels.Contains(currentModel))
+            {
+                currentModel = DefaultModel;
+            }
+
+            _modelField = new DropdownField("Model", AllModels, AllModels.IndexOf(currentModel));
             _modelField.style.flexGrow = 1;
             _modelField.style.marginRight = 6;
+            _modelField.RegisterValueChangedCallback(OnModelChanged);
             optionsRow.Add(_modelField);
 
-            _effortField = new DropdownField("Effort", new List<string> { "minimal", "low", "medium", "high", "xhigh" }, 2);
-            _effortField.value = _runner.State.effort ?? "medium";
+            var effortOptions = GetEffortOptionsForModel(currentModel);
+            var currentEffort = _runner.State.effort ?? DefaultEffort;
+            if (!effortOptions.Contains(currentEffort))
+            {
+                currentEffort = DefaultEffort;
+            }
+
+            _effortField = new DropdownField("Effort", effortOptions, effortOptions.IndexOf(currentEffort));
             _effortField.style.flexGrow = 1;
             optionsRow.Add(_effortField);
 
             _promptContent.Add(optionsRow);
 
+            // 常用语选择行
+            var phrasesRow = new VisualElement();
+            phrasesRow.style.flexDirection = FlexDirection.Row;
+            phrasesRow.style.marginBottom = 6;
+            phrasesRow.style.alignItems = Align.Center;
+
+            var phrasesLabel = new Label("常用语");
+            phrasesLabel.style.fontSize = 11;
+            phrasesLabel.style.color = new Color(0.66f, 0.66f, 0.69f);
+            phrasesLabel.style.marginRight = 8;
+            phrasesLabel.style.minWidth = 45;
+            phrasesRow.Add(phrasesLabel);
+
+            _phrases = CodexStore.LoadPhrases();
+            var phrasesChoices = BuildPhrasesChoices();
+            _phrasesDropdown = new DropdownField(phrasesChoices, -1);
+            _phrasesDropdown.style.flexGrow = 1;
+            _phrasesDropdown.RegisterValueChangedCallback(OnPhraseSelected);
+            phrasesRow.Add(_phrasesDropdown);
+
+            _promptContent.Add(phrasesRow);
+
             // Prompt 输入框
             _promptField = new TextField();
             _promptField.multiline = true;
+            _promptField.AddToClassList("prompt-field");
             _promptField.style.minHeight = 60;
             _promptField.style.maxHeight = 120;
+            _promptField.style.flexGrow = 1;
             // 恢复草稿
             _promptField.value = _runner.State.draftPrompt ?? "";
             // 实时保存草稿
@@ -684,6 +740,104 @@ namespace CodexUnity.Views
             if (!string.IsNullOrEmpty(item.role)) return item.role;
             return "event";
         }
+
+        #region 模型选择管理
+
+        private static List<string> GetEffortOptionsForModel(string model)
+        {
+            return model == MiniModel ? new List<string>(MiniEffortOptions) : new List<string>(FullEffortOptions);
+        }
+
+        private void OnModelChanged(ChangeEvent<string> evt)
+        {
+            var newModel = evt.newValue;
+            var newOptions = GetEffortOptionsForModel(newModel);
+            var currentEffort = _effortField.value;
+
+            // 更新档位选项
+            _effortField.choices = newOptions;
+
+            // 如果当前档位在新选项中不存在，重置为默认
+            if (!newOptions.Contains(currentEffort))
+            {
+                _effortField.value = DefaultEffort;
+            }
+        }
+
+        #endregion
+
+        #region 常用语管理
+
+        private List<string> BuildPhrasesChoices()
+        {
+            var choices = new List<string>(_phrases);
+            choices.Add(AddNewPhraseOption);
+            return choices;
+        }
+
+        private void RefreshPhrasesDropdown()
+        {
+            _phrases = CodexStore.LoadPhrases();
+            var choices = BuildPhrasesChoices();
+            _phrasesDropdown.choices = choices;
+            _phrasesDropdown.SetValueWithoutNotify(null);
+        }
+
+        private void OnPhraseSelected(ChangeEvent<string> evt)
+        {
+            var selected = evt.newValue;
+            if (string.IsNullOrEmpty(selected)) return;
+
+            // 重置下拉框选择状态
+            _phrasesDropdown.schedule.Execute(() => _phrasesDropdown.SetValueWithoutNotify(null));
+
+            if (selected == AddNewPhraseOption)
+            {
+                ShowAddPhraseDialog();
+                return;
+            }
+
+            // 将选中的常用语追加到 Prompt 输入框
+            InsertPhraseToPrompt(selected);
+        }
+
+        private void ShowAddPhraseDialog()
+        {
+            var newPhrase = EditorInputDialog.Show("新增常用语", "请输入常用语内容:", "");
+            if (!string.IsNullOrWhiteSpace(newPhrase))
+            {
+                CodexStore.AddPhrase(newPhrase);
+                RefreshPhrasesDropdown();
+            }
+        }
+
+        private void InsertPhraseToPrompt(string phrase)
+        {
+            if (_promptField == null) return;
+
+            var currentText = _promptField.value ?? "";
+            if (string.IsNullOrEmpty(currentText))
+            {
+                _promptField.value = phrase;
+            }
+            else
+            {
+                // 如果当前文本不以空格或换行结尾，添加一个空格
+                if (!currentText.EndsWith(" ") && !currentText.EndsWith("\n"))
+                {
+                    _promptField.value = currentText + " " + phrase;
+                }
+                else
+                {
+                    _promptField.value = currentText + phrase;
+                }
+            }
+
+            // 聚焦到输入框
+            _promptField.Focus();
+        }
+
+        #endregion
 
         private static string GetFinalContent(string streamContent)
         {
