@@ -24,22 +24,24 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 17c350171f7a3ca479f830547c66d187, type: 3}
+        m_Texture: {fileID: 2800000, guid: 4f618c02dec9a724cbb608ff4b238f98, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _NormalMap:
-        m_Texture: {fileID: 2800000, guid: 8878a782f4334ecbbcf683b3ac780966, type: 3}
+        m_Texture: {fileID: 2800000, guid: 283f897e4925411ebbaa758b4cb13fc2, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ShadowTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 8400000, guid: e9365a351f9e2e44b9829b32d97fafde, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _BlurAmount: 0
-    - _EmissionIntensity: 1
-    - _Saturation: 1
+    - _EmissionIntensity: 0.7760357
+    - _Saturation: 1.5
+    - _WobbleSpeed: 1
+    - _WobbleStrength: 0.005
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

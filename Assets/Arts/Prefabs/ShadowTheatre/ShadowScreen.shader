@@ -32,6 +32,7 @@ Shader "Custom/ShadowScreen"
                 float _Saturation;
                 float _WobbleStrength;
                 float _WobbleSpeed;
+                float4 _ShadowTex_TexelSize;
             CBUFFER_END
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
