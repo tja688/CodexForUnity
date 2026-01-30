@@ -96,6 +96,15 @@ public static class ShadowTheatreSetup
             material.SetTexture("_NormalMap", normal);
         }
 
+        var dirt = AssetDatabase.LoadAssetAtPath<Texture2D>(
+            "Assets/TextMesh Pro/Examples & Extras/Textures/Floor Cement.jpg");
+        if (dirt != null)
+        {
+            material.SetTexture("_DirtTex", dirt);
+        }
+
+        material.SetColor("_LightColor", new Color(1f, 0.86f, 0.7f, 1f));
+
         AssetDatabase.SaveAssets();
         return material;
     }

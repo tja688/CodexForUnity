@@ -206,7 +206,7 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -4.6}
+  m_LocalPosition: {x: 0, y: 0, z: -5.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -393,6 +393,7 @@ GameObject:
   m_Component:
   - component: {fileID: 767250484}
   - component: {fileID: 767250483}
+  - component: {fileID: 767250485}
   m_Layer: 8
   m_Name: test image
   m_TagString: Untagged
@@ -474,55 +475,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &884279712 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 7098081307360762458, guid: 83c9048866d12b14fb0f437332c48a79, type: 3}
-  m_PrefabInstance: {fileID: 2053197584640112860}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &884279715
+--- !u!114 &767250485
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 884279712}
+  m_GameObject: {fileID: 767250482}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Script: {fileID: 11500000, guid: 1c2d91c16830ced4f8b37a7bf1644f1e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
-  m_RenderShadows: 1
-  m_RequiresDepthTextureOption: 2
-  m_RequiresOpaqueTextureOption: 2
-  m_CameraType: 0
-  m_Cameras: []
-  m_RendererIndex: -1
-  m_VolumeLayerMask:
-    serializedVersion: 2
-    m_Bits: 1
-  m_VolumeTrigger: {fileID: 0}
-  m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
-  m_Antialiasing: 0
-  m_AntialiasingQuality: 2
-  m_StopNaN: 0
-  m_Dithering: 0
-  m_ClearDepth: 1
-  m_AllowXRRendering: 1
-  m_AllowHDROutput: 1
-  m_UseScreenCoordOverride: 0
-  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
-  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
-  m_RequiresDepthTexture: 0
-  m_RequiresColorTexture: 0
-  m_TaaSettings:
-    m_Quality: 3
-    m_FrameInfluence: 0.1
-    m_JitterScale: 1
-    m_MipBias: 0
-    m_VarianceClampScale: 0.9
-    m_ContrastAdaptiveSharpening: 0
-  m_Version: 2
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterBlurTest
+  minZ: 0
+  maxZ: 30
+  intensity: 3
+  oneWayDuration: 0.5
+  flipDuration: 0.5
+  moveSpeed: 5
 --- !u!1001 &2053197584640112860
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -580,28 +550,21 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 767250484}
     - target: {fileID: 3762018416922185480, guid: 83c9048866d12b14fb0f437332c48a79, type: 3}
-      propertyPath: saturation
-      value: 1.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 3762018416922185480, guid: 83c9048866d12b14fb0f437332c48a79, type: 3}
       propertyPath: emissionMax
-      value: 0.85
+      value: 1.15
       objectReference: {fileID: 0}
     - target: {fileID: 3762018416922185480, guid: 83c9048866d12b14fb0f437332c48a79, type: 3}
       propertyPath: emissionMin
-      value: 0.7
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3762018416922185480, guid: 83c9048866d12b14fb0f437332c48a79, type: 3}
       propertyPath: flickerSpeed
-      value: 200
+      value: 300
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 7098081307360762458, guid: 83c9048866d12b14fb0f437332c48a79, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 884279715}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 83c9048866d12b14fb0f437332c48a79, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
