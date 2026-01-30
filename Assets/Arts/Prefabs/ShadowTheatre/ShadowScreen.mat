@@ -43,7 +43,7 @@ Material:
     m_Floats:
     - _BlurAmount: 0
     - _DirtStrength: 0.1
-    - _EmissionIntensity: 1.0764366
+    - _EmissionIntensity: 1.0845414
     - _FlickerFastMax: 1.05
     - _FlickerFastMin: 0.95
     - _FlickerMax: 1.1
